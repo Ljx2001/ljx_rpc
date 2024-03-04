@@ -8,9 +8,11 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 
 public class ZookeeperTest {
     ZooKeeper zookeeper;
+    CountDownLatch countDownLatch = new CountDownLatch(1);
     @Before
     public void start() throws IOException {
         //定义连接参数
