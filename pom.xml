@@ -9,7 +9,14 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>demo</module>
+        <module>rpc_demo</module>
+        <module>rpc_framework</module>
+        <module>rpc_framework/rpc_common</module>
+        <module>rpc_framework/rpc_core</module>
+        <module>rpc_manager</module>
+        <module>rpc_demo/rpc_api</module>
+        <module>rpc_demo/rpc_consumer_demo</module>
+        <module>rpc_demo/rpc_provider_demo</module>
     </modules>
 
     <properties>
@@ -19,10 +26,18 @@
         <netty.version>4.1.89.Final</netty.version>
         <junit.version>4.12</junit.version>
         <zookeeper.version>3.8.1</zookeeper.version>
+        <commons-lang3.version>3.7</commons-lang3.version>
+        <logback.version>1.4.14</logback.version>
+        <fastjson2.version>2.0.19</fastjson2.version>
+        <lombok.version>1.18.30</lombok.version>
     </properties>
 
     <dependencies>
-
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -42,6 +57,23 @@
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
                 <version>${zookeeper.version}</version>
+            </dependency>
+            <!--日志-->
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+            <!--序列化-->
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
