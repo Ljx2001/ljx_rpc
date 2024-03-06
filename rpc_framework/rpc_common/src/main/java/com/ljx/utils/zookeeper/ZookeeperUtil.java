@@ -9,6 +9,7 @@ import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -31,7 +32,7 @@ public class ZookeeperUtil {
             final ZooKeeper zookeeper = new ZooKeeper(connectString, timeout, watchedEvent -> {
                 //连接成功才放行
                 if (watchedEvent.getState() == Watcher.Event.KeeperState.SyncConnected) {
-                    System.out.println("zookeeper客户端连接成功！");
+                    log.debug("zookeeper客户端连接成功！");
                     countDownLatch.countDown();
                 }
             });
@@ -99,6 +100,21 @@ public class ZookeeperUtil {
             return zookeeper.exists(node, watcher) != null;
         } catch (KeeperException | InterruptedException e) {
             log.error("判断节点是否存在时发生异常：{}", e.getMessage());
+            throw new ZookeeperException();
+        }
+    }
+
+    /**
+     * 获取某个节点的子节点
+     * @param parentNode 父节点
+     * @param zooKeeper zookeeper实例
+     * @return 子节点数组
+     */
+    public static List<String> getChildren(String parentNode, ZooKeeper zooKeeper, Watcher watcher){
+        try {
+            return zooKeeper.getChildren(parentNode, watcher);
+        } catch (KeeperException | InterruptedException e) {
+            log.error("获取【{}】子节点时发生异常：{}", parentNode ,e.getMessage());
             throw new ZookeeperException();
         }
     }

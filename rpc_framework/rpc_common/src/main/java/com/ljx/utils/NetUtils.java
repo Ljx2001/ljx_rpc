@@ -30,7 +30,9 @@ public class NetUtils {
                         continue;
                     }
                     String ip = addr.getHostAddress();
-                    System.out.println("本机的局域网ip=" + ip);
+                    if(log.isDebugEnabled()){
+                        log.debug("本机的局域网ip={}", ip);
+                    }
                     return ip;
                 }
             }
