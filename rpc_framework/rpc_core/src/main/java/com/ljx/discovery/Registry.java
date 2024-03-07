@@ -3,6 +3,7 @@ package com.ljx.discovery;
 import com.ljx.ServiceConfig;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 
 /**
  * 抽象注册中心接口
@@ -21,5 +22,5 @@ public interface Registry {
      * @param name 服务的名称
      * @return 服务的ip和端口
      */
-    InetSocketAddress lookup(String name);
+    List<InetSocketAddress> lookup(String name);
 }

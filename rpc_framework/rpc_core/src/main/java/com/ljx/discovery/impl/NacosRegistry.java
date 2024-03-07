@@ -4,6 +4,7 @@ import com.ljx.ServiceConfig;
 import com.ljx.discovery.AbstractRegistry;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 
 /**
  * @Author LiuJixing
@@ -19,7 +20,7 @@ public class NacosRegistry extends AbstractRegistry {
     }
 
     @Override
-    public InetSocketAddress lookup(String name) {
+    public List<InetSocketAddress> lookup(String name) {
         return null;
     }
 }

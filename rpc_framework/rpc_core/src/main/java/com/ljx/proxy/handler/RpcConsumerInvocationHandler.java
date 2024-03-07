@@ -1,13 +1,15 @@
 package com.ljx.proxy.handler;
 
+import com.ljx.compress.CompressorFactory;
+import com.ljx.serialize.SerializerFactory;
 import com.ljx.Exceptions.DiscoveryException;
 import com.ljx.Exceptions.NetworkException;
 import com.ljx.NettyBootstrapInitalizer;
 import com.ljx.RpcBootstrap;
 import com.ljx.discovery.Registry;
+import com.ljx.enumeration.RequestType;
 import com.ljx.transport.message.RequestPayload;
 import com.ljx.transport.message.RpcRequest;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -36,18 +40,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
     }
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        //1.发现服务，从注册中心寻找一个可用的服务
-        //传入服务的名字，返回ip和端口
-        InetSocketAddress addr =  registry.lookup(interfaceRef.getName());
-        if(log.isDebugEnabled()){
-            log.debug("服务调用方发现了服务【{}】的可用主机【{}】", interfaceRef.getName(), addr);
-        }
-        //2.得到一个可用的通道
-        Channel channel = getAvailableChannel(addr);
-        if(log.isDebugEnabled()){
-            log.debug("获取了和【{}】的连接通道，准备放松数据", channel);
-        }
-        //3.封装报文
+        //1.封装报文
         RequestPayload requestPayload = RequestPayload.builder()
                 .interfaceName(interfaceRef.getName())
                 .methodName(method.getName())
@@ -56,17 +49,25 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 .returnType(method.getReturnType())
                 .build();
         RpcRequest rpcRequest = RpcRequest.builder()
-                .requestId(1L)
-                .compressType((byte) 1)
-                .requestType((byte) 1)
-                .serializeType((byte) 1)
+                .requestId(RpcBootstrap.ID_GENERATOR.getId())
+                .compressType(CompressorFactory.getCompressor(RpcBootstrap.COMPRESS_TYPE).getCode())
+                .requestType(RequestType.REQUEST.getId())
+                .serializeType(SerializerFactory.getSerializer(RpcBootstrap.SERIALIZER_TYPE).getCode())
+                .timestamp(new Date().getTime())
                 .requestPayload(requestPayload)
-                .build()
-
-
-
-
-        ;
+                .build();
+        RpcBootstrap.REQUEST_THREAD_LOCAL.set(rpcRequest);
+        //2.发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
+        //获取当前配置的负载均衡器，选取一个可用节点
+        InetSocketAddress addr = RpcBootstrap.LOAD_BALANCER.selectServiceAddress(interfaceRef.getName());
+        if(log.isDebugEnabled()){
+            log.debug("服务调用方发现了服务【{}】的可用主机【{}】", interfaceRef.getName(), addr);
+        }
+        //3.得到一个可用的通道
+        Channel channel = getAvailableChannel(addr);
+        if(log.isDebugEnabled()){
+            log.debug("获取了和【{}】的连接通道，准备发送数据", channel);
+        }
 
         //------------同步策略--------------
 //                ChannelFuture channelFuture = channel.writeAndFlush(new Object()).await();
@@ -81,7 +82,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         //4.写出报文
         CompletableFuture<Object> completableFuture = new CompletableFuture<>();
         //将CompletableFuture放入全局的缓存中，暴露出去
-        RpcBootstrap.PENDING_REQUEST.put(1L, completableFuture);
+        RpcBootstrap.PENDING_REQUEST.put(rpcRequest.getRequestId(), completableFuture);
         //将RpcRequest写出到pipeline，供责任链上的handler进行一系列出栈的处理
         channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) promise -> {
             if(!promise.isSuccess()) {
@@ -90,6 +91,8 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 completableFuture.completeExceptionally(cause);
             }
         });
+        //清理ThreadLocal
+        RpcBootstrap.REQUEST_THREAD_LOCAL.remove();
         //5.等待获取相应的结果
         return completableFuture.get(10, TimeUnit.SECONDS);
     }

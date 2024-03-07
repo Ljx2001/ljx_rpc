@@ -3,6 +3,7 @@ package com.ljx.discovery.impl;
 import com.ljx.Constant;
 import com.ljx.Exceptions.DiscoveryException;
 import com.ljx.Exceptions.NetworkException;
+import com.ljx.RpcBootstrap;
 import com.ljx.ServiceConfig;
 import com.ljx.discovery.AbstractRegistry;
 import com.ljx.utils.NetUtils;
@@ -43,7 +44,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
         //创建本机的临时节点,ip:port
         String localIp = NetUtils.getLocalIp();
         //todo:后续处理端口问题
-        String localNode = parentNode + "/" + localIp + ":" + 8088;
+        String localNode = parentNode + "/" + localIp + ":" + RpcBootstrap.PORT;
         if(!ZookeeperUtil.exists(localNode,null,zooKeeper)){
             ZookeeperUtil.createNode(zooKeeper, new ZookeeperNode(localNode, null), null, CreateMode.EPHEMERAL);
         }
@@ -53,7 +54,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
     }
 
     @Override
-    public InetSocketAddress lookup(String name) {
+    public List<InetSocketAddress> lookup(String name) {
         //1.找到服务对应的节点
         String parentNode = Constant.BASE_PROVIDER_PATH + "/" + name;
         //2.从zk中获取他的子节点
@@ -69,6 +70,6 @@ public class ZookeeperRegistry extends AbstractRegistry {
         }
         // todo: 1.每次调用相关方法都需要去注册中心拉取服务列表吗？ 本地缓存 ＋ watch机制
         //       2.如何合理的选择一个可用的服务，而不是选择第一个 负载均衡
-        return addresses.get(0);
+        return addresses;
     }
 }

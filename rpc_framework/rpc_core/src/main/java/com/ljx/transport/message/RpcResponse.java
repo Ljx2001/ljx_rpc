@@ -6,25 +6,25 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * 服务调用方发起的请求内容
+ * 服务提供方回复的响应
  * @Author LiuJixing
- * @Date 5/3/2024
+ * @Date 6/3/2024
  */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class RpcRequest {
+public class RpcResponse {
     //请求的id
     private long requestId;
-    //请求的类型
-    private byte requestType;
     //压缩的方式
     private byte compressType;
     //序列化的方式
     private byte serializeType;
+    //响应码 1-成功 2-异常
+    private byte code;
     //具体的消息体
-    private RequestPayload requestPayload;
+    private Object body;
     //时间戳
     private long timestamp;
 }

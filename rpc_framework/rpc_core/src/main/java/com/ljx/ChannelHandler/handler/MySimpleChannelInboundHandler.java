@@ -1,6 +1,7 @@
 package com.ljx.ChannelHandler.handler;
 
 import com.ljx.RpcBootstrap;
+import com.ljx.transport.message.RpcResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -15,12 +16,15 @@ import java.util.concurrent.CompletableFuture;
  * @Date 5/3/2024
  */
 @Slf4j
-public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<ByteBuf> {
+public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<RpcResponse> {
     @Override
-    protected void channelRead0(ChannelHandlerContext channelHandlerContext, ByteBuf msg) throws Exception {
-        String result = msg.toString(Charset.defaultCharset());
-        CompletableFuture<Object> completableFuture = RpcBootstrap.PENDING_REQUEST.get(1L);
-        completableFuture.complete(result);
-        log.info("客户端收到消息：{}", msg.toString(Charset.defaultCharset()));
+    protected void channelRead0(ChannelHandlerContext channelHandlerContext, RpcResponse rpcResponse) throws Exception {
+        Object returnValue = rpcResponse.getBody();
+        returnValue = returnValue==null?new Object():returnValue;
+        CompletableFuture<Object> completableFuture = RpcBootstrap.PENDING_REQUEST.get(rpcResponse.getRequestId());
+        completableFuture.complete(returnValue);
+        if(log.isDebugEnabled()){
+            log.debug("已寻找到编号为【{}】的completableFuture，处理相应结果。",rpcResponse.getRequestId());
+        }
     }
 }

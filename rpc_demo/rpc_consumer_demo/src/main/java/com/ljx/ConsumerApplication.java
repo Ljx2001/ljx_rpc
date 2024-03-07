@@ -1,8 +1,11 @@
 package com.ljx;
 
 
+import com.ljx.core.HeartbeatDetector;
 import com.ljx.discovery.RegistryConfig;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
 
 /**
  * @Author LiuJixing
@@ -20,11 +23,18 @@ public class ConsumerApplication {
         RpcBootstrap.getInstance()
                 .application("first-rpc-consumer")
                 .registry(new RegistryConfig("zookeeper://127.0.0.1:2181"))
+                .serialize("hessian")
+                .compress("gzip")
                 .reference(reference);
         //获取一个代理对象
         HelloRpc helloRpc = reference.get();
-        //调用代理对象的方法
-        String result = helloRpc.sayHi("你好");
-        log.info("调用结果：{}", result);
+//        for (int i = 0; i < 10; i++) {
+//            //调用代理对象的方法
+//            String result = helloRpc.sayHi("你好");
+//            log.info("调用结果：{}", result);
+//        }
+//        //调用代理对象的方法
+//        String result = helloRpc.sayHi("你好");
+//        log.info("调用结果：{}", result);
     }
 }
