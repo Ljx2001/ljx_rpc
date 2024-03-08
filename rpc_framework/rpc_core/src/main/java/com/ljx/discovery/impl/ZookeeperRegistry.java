@@ -9,11 +9,14 @@ import com.ljx.discovery.AbstractRegistry;
 import com.ljx.utils.NetUtils;
 import com.ljx.utils.zookeeper.ZookeeperNode;
 import com.ljx.utils.zookeeper.ZookeeperUtil;
+import com.ljx.watcher.NodeUPAndDownWatcher;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.net.InetSocketAddress;
@@ -44,7 +47,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
         //创建本机的临时节点,ip:port
         String localIp = NetUtils.getLocalIp();
         //todo:后续处理端口问题
-        String localNode = parentNode + "/" + localIp + ":" + RpcBootstrap.PORT;
+        String localNode = parentNode + "/" + localIp + ":" + RpcBootstrap.getInstance().getConfiguration().getPort();
         if(!ZookeeperUtil.exists(localNode,null,zooKeeper)){
             ZookeeperUtil.createNode(zooKeeper, new ZookeeperNode(localNode, null), null, CreateMode.EPHEMERAL);
         }
@@ -58,7 +61,7 @@ public class ZookeeperRegistry extends AbstractRegistry {
         //1.找到服务对应的节点
         String parentNode = Constant.BASE_PROVIDER_PATH + "/" + name;
         //2.从zk中获取他的子节点
-        List<String> children = ZookeeperUtil.getChildren(parentNode, zooKeeper,null);
+        List<String> children = ZookeeperUtil.getChildren(parentNode, zooKeeper, new NodeUPAndDownWatcher());
         //3.解析子节点的数据，返回ip和端口
         List<InetSocketAddress> addresses = new ArrayList<>();
         children.stream().map(ipString-> {

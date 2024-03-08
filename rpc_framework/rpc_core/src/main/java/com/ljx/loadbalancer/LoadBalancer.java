@@ -15,4 +15,11 @@ public interface LoadBalancer {
      * @return 选择的服务地址
      */
     InetSocketAddress selectServiceAddress(String serviceName);
+    /**
+     * 重新感知到节点发生了动态上下线，需要重新负载均衡
+     * @param serviceName 服务名称
+     * @param serviceList 服务列表
+     */
+
+    void reLoadBalance(String serviceName, List<InetSocketAddress> serviceList);
 }

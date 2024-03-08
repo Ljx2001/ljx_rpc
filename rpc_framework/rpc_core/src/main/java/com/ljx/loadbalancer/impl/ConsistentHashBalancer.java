@@ -108,9 +108,5 @@ public class ConsistentHashBalancer extends AbstractLoadBalancer {
                 throw new RuntimeException("MD5 not supported", e);
             }
         }
-
-        @Override
-        public void reBalance() {
-        }
     }
 }

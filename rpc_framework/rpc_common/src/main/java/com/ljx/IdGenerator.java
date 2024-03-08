@@ -44,7 +44,7 @@ public class IdGenerator {
     private LongAdder sequenceId = new LongAdder();
     //上一次的时间戳
     private long lastTimeStamp = -1L;
-    public IdGenerator(long dataCenterId, long machineId) {
+    public IdGenerator(Long dataCenterId, Long machineId) {
         if(dataCenterId > MAX_DATA_CENTER_NUM || dataCenterId < 0){
             throw new IllegalArgumentException("dataCenterId can't be greater than MAX_DATA_CENTER_NUM or less than 0");
         }
@@ -79,15 +79,5 @@ public class IdGenerator {
         lastTimeStamp = timeStamp;
         long sequence = this.sequenceId.sum();
         return timeStamp<<TIMESTAMP_LEFT_SHIFT | dataCenterId<<DATA_CENTER_LEFT_SHIFT | machineId<<MACHINE_LEFT_SHIFT | sequence;
-    }
-
-    public static void main(String[] args) {
-        IdGenerator idGenerator = new IdGenerator(1, 2);
-        LongAdder longAdder = new LongAdder();
-        for (int i = 0; i < 100; i++) {
-            new Thread(()->{
-                System.out.println(idGenerator.getId());
-            }).start();
-        }
     }
 }

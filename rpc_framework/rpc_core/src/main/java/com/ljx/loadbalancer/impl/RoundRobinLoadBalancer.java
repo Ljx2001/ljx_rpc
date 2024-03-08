@@ -47,10 +47,5 @@ public class RoundRobinLoadBalancer extends AbstractLoadBalancer{
             }
             return addr;
         }
-
-        @Override
-        public void reBalance() {
-
-        }
     }
 }

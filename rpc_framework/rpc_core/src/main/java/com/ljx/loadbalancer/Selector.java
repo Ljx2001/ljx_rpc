@@ -14,6 +14,4 @@ public interface Selector {
      * @return 选择的服务地址
      */
     InetSocketAddress getNext();
-    //todo 服务下线重新做负载均衡
-    void reBalance();
 }

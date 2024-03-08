@@ -1,0 +1,3 @@
+com.ljx.loadbalancer.impl.RoundRobinLoadBalancer
+com.ljx.loadbalancer.impl.ConsistentHashBalancer
+com.ljx.loadbalancer.impl.MinimumResponseTimeLoadBalancer

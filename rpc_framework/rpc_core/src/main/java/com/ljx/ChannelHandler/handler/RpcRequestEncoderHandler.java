@@ -2,6 +2,7 @@ package com.ljx.ChannelHandler.handler;
 
 import com.ljx.compress.Compressor;
 import com.ljx.compress.CompressorFactory;
+import com.ljx.enumeration.RequestType;
 import com.ljx.serialize.Serializer;
 import com.ljx.serialize.SerializerFactory;
 import com.ljx.RpcBootstrap;
@@ -52,7 +53,7 @@ public class RpcRequestEncoderHandler extends MessageToByteEncoder<RpcRequest> {
         byteBuf.writeLong(rpcRequest.getTimestamp());
         //请求体编码
         byte[] body =null;
-        if (body != null && body.length != 0) {
+        if (rpcRequest.getRequestPayload()!=null) {
             //根据配置的序列化方式进行序列化
             Serializer serializer = SerializerFactory.getSerializer(rpcRequest.getSerializeType()).getSerializer();
             body = serializer.serialize(rpcRequest.getRequestPayload());
@@ -72,7 +73,7 @@ public class RpcRequestEncoderHandler extends MessageToByteEncoder<RpcRequest> {
         byteBuf.writeInt(MessageFormatConstant.HEAD_LENGTH + bodyLength);
         //写指针归位
         byteBuf.writerIndex(writerIndex);
-        if(log.isDebugEnabled()){
+        if(log.isDebugEnabled()&&body != null){
             log.debug("请求【{}】已经完成了报文的编码。",rpcRequest.getRequestId());
         }
     }
