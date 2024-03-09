@@ -55,10 +55,10 @@ public class RpcRequestEncoderHandler extends MessageToByteEncoder<RpcRequest> {
         byte[] body =null;
         if (rpcRequest.getRequestPayload()!=null) {
             //根据配置的序列化方式进行序列化
-            Serializer serializer = SerializerFactory.getSerializer(rpcRequest.getSerializeType()).getSerializer();
+            Serializer serializer = SerializerFactory.getSerializer(rpcRequest.getSerializeType()).getImpl();
             body = serializer.serialize(rpcRequest.getRequestPayload());
             //根据配置的压缩方式进行压缩
-            Compressor compressor = CompressorFactory.getCompressor(rpcRequest.getCompressType()).getCompressor();
+            Compressor compressor = CompressorFactory.getCompressor(rpcRequest.getCompressType()).getImpl();
             body = compressor.compress(body);
         }
         if(body!=null){

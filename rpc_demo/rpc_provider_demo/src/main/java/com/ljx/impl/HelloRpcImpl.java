@@ -2,6 +2,7 @@ package com.ljx.impl;
 
 import com.ljx.HelloRpc;
 import com.ljx.annotation.RpcService;
+import com.ljx.annotation.TryTimes;
 
 @RpcService
 public class HelloRpcImpl implements HelloRpc {

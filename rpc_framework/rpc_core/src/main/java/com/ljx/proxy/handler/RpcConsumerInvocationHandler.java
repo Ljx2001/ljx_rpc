@@ -1,5 +1,6 @@
 package com.ljx.proxy.handler;
 
+import com.ljx.annotation.TryTimes;
 import com.ljx.compress.CompressorFactory;
 import com.ljx.serialize.SerializerFactory;
 import com.ljx.Exceptions.DiscoveryException;
@@ -39,62 +40,90 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
         this.registry = registry;
     }
     @Override
-    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        //1.封装报文
-        RequestPayload requestPayload = RequestPayload.builder()
-                .interfaceName(interfaceRef.getName())
-                .methodName(method.getName())
-                .parameterValues(args)
-                .parameterTypes(method.getParameterTypes())
-                .returnType(method.getReturnType())
-                .build();
-        RpcRequest rpcRequest = RpcRequest.builder()
-                .requestId(RpcBootstrap.getInstance().getConfiguration().getIdGenerator().getId())
-                .compressType(CompressorFactory.getCompressor(RpcBootstrap.getInstance().getConfiguration().getCompressType()).getCode())
-                .requestType(RequestType.REQUEST.getId())
-                .serializeType(SerializerFactory.getSerializer(RpcBootstrap.getInstance().getConfiguration().getSerializeType()).getCode())
-                .timestamp(new Date().getTime())
-                .requestPayload(requestPayload)
-                .build();
-        RpcBootstrap.REQUEST_THREAD_LOCAL.set(rpcRequest);
-        //2.发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
-        //获取当前配置的负载均衡器，选取一个可用节点
-        InetSocketAddress addr = RpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
-        if(log.isDebugEnabled()){
-            log.debug("服务调用方发现了服务【{}】的可用主机【{}】", interfaceRef.getName(), addr);
+    public Object invoke(Object proxy, Method method, Object[] args) {
+        TryTimes tryTimesAnnotation = method.getAnnotation(TryTimes.class);
+        int tryTimes = 0;
+        int intervalTime = 0;
+        if(tryTimesAnnotation != null){
+            tryTimes = tryTimesAnnotation.tryTimes();
+            intervalTime = tryTimesAnnotation.interval();
         }
-        //3.得到一个可用的通道
-        Channel channel = getAvailableChannel(addr);
-        if(log.isDebugEnabled()){
-            log.debug("获取了和【{}】的连接通道，准备发送数据", channel);
-        }
+        int initTryTimes = tryTimes;
+        while (true) {
+            try {
+                //1.封装报文
+                RequestPayload requestPayload = RequestPayload.builder()
+                        .interfaceName(interfaceRef.getName())
+                        .methodName(method.getName())
+                        .parameterValues(args)
+                        .parameterTypes(method.getParameterTypes())
+                        .returnType(method.getReturnType())
+                        .build();
+                RpcRequest rpcRequest = RpcRequest.builder()
+                        .requestId(RpcBootstrap.getInstance().getConfiguration().getIdGenerator().getId())
+                        .compressType(CompressorFactory.getCompressor(RpcBootstrap.getInstance().getConfiguration().getCompressType()).getCode())
+                        .requestType(RequestType.REQUEST.getId())
+                        .serializeType(SerializerFactory.getSerializer(RpcBootstrap.getInstance().getConfiguration().getSerializeType()).getCode())
+                        .timestamp(System.currentTimeMillis())
+                        .requestPayload(requestPayload)
+                        .build();
+                RpcBootstrap.REQUEST_THREAD_LOCAL.set(rpcRequest);
+                //2.发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
+                //获取当前配置的负载均衡器，选取一个可用节点
+                InetSocketAddress addr = RpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
+                if (log.isDebugEnabled()) {
+                    log.debug("服务调用方发现了服务【{}】的可用主机【{}】", interfaceRef.getName(), addr);
+                }
+                //3.得到一个可用的通道
+                Channel channel = getAvailableChannel(addr);
+                if (log.isDebugEnabled()) {
+                    log.debug("获取了和【{}】的连接通道，准备发送数据", channel);
+                }
 
-        //------------同步策略--------------
-//                ChannelFuture channelFuture = channel.writeAndFlush(new Object()).await();
-//                if(channelFuture.isDone()) {
-//                    Object object = channelFuture.getNow();
-//                } else if(!channelFuture.isSuccess()) {
-//                    //捕获异步任务中的异常
-//                    Throwable cause = channelFuture.cause();
-//                    throw new RuntimeException(cause);
-//                }
-        //------------异步策略--------------
-        //4.写出报文
-        CompletableFuture<Object> completableFuture = new CompletableFuture<>();
-        //将CompletableFuture放入全局的缓存中，暴露出去
-        RpcBootstrap.PENDING_REQUEST.put(rpcRequest.getRequestId(), completableFuture);
-        //将RpcRequest写出到pipeline，供责任链上的handler进行一系列出栈的处理
-        channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) promise -> {
-            if(!promise.isSuccess()) {
-                //捕获异步任务中的异常
-                Throwable cause = promise.cause();
-                completableFuture.completeExceptionally(cause);
+                //------------同步策略--------------
+                //                ChannelFuture channelFuture = channel.writeAndFlush(new Object()).await();
+                //                if(channelFuture.isDone()) {
+                //                    Object object = channelFuture.getNow();
+                //                } else if(!channelFuture.isSuccess()) {
+                //                    //捕获异步任务中的异常
+                //                    Throwable cause = channelFuture.cause();
+                //                    throw new RuntimeException(cause);
+                //                }
+                //------------异步策略--------------
+                //4.写出报文
+                CompletableFuture<Object> completableFuture = new CompletableFuture<>();
+                //将CompletableFuture放入全局的缓存中，暴露出去
+                RpcBootstrap.PENDING_REQUEST.put(rpcRequest.getRequestId(), completableFuture);
+                //将RpcRequest写出到pipeline，供责任链上的handler进行一系列出栈的处理
+                channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) promise -> {
+                    if (!promise.isSuccess()) {
+                        //捕获异步任务中的异常
+                        Throwable cause = promise.cause();
+                        completableFuture.completeExceptionally(cause);
+                    }
+                });
+                //清理ThreadLocal
+                RpcBootstrap.REQUEST_THREAD_LOCAL.remove();
+                //5.等待获取相应的结果
+                return completableFuture.get(10, TimeUnit.SECONDS);
+            } catch (DiscoveryException | InterruptedException | ExecutionException | TimeoutException e) {
+                //执行重试
+                tryTimes--;
+                try {
+                    Thread.sleep(intervalTime);
+                } catch (InterruptedException ex) {
+                    log.error("在进行重试时发生了异常", ex);
+                }
+                if(tryTimes < 0) {
+                    log.error("在对方法【{}】进行【{}】次调用重试仍出错", method.getName(),initTryTimes, e);
+                    break;
+                } else{
+
+                }
+                log.error("在进行第【{}】重试时发生了异常", 3 - tryTimes, e);
             }
-        });
-        //清理ThreadLocal
-        RpcBootstrap.REQUEST_THREAD_LOCAL.remove();
-        //5.等待获取相应的结果
-        return completableFuture.get(10, TimeUnit.SECONDS);
+        }
+        throw new RuntimeException("在执行远程方法"+method.getName()+"调用时时发生了异常");
     }
 
     /**

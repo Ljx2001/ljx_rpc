@@ -51,10 +51,10 @@ public class RpcResponseEncoderHandler extends MessageToByteEncoder<RpcResponse>
         byte[] body = null;
         //响应体序列化
         if(rpcResponse.getBody()!=null){
-            Serializer serializer = SerializerFactory.getSerializer(rpcResponse.getSerializeType()).getSerializer();
+            Serializer serializer = SerializerFactory.getSerializer(rpcResponse.getSerializeType()).getImpl();
             body = serializer.serialize(rpcResponse.getBody());
             //响应体压缩
-            Compressor compressor = CompressorFactory.getCompressor(rpcResponse.getCompressType()).getCompressor();
+            Compressor compressor = CompressorFactory.getCompressor(rpcResponse.getCompressType()).getImpl();
             body = compressor.compress(body);
         }
         if(body!=null){

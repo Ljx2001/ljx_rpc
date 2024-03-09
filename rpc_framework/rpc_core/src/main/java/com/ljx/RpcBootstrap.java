@@ -95,18 +95,6 @@ public class RpcBootstrap {
     }
 
     /**
-     * 用来配置一个序列化协议
-     * @return this
-     */
-    public RpcBootstrap protocol(ProtocolConfig protocolConfig) {
-        configuration.setProtocolConfig(protocolConfig);
-        if(log.isDebugEnabled()){
-            log.debug("当前工程使用了：{}协议进行序列化", protocolConfig.toString());
-        }
-        return this;
-    }
-
-    /**
      * ---------------------------------服务消费方相关的api---------------------------------
      */
     /**

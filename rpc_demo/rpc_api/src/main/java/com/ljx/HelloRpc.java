@@ -1,5 +1,7 @@
 package com.ljx;
 
+import com.ljx.annotation.TryTimes;
+
 /**
  * @Author: liujinxing
  * @Date: 2024-03-01
@@ -10,5 +12,6 @@ public interface HelloRpc {
      * @param msg，发送的具体消息
      * @return
      */
+    @TryTimes(tryTimes = 4, interval = 1000)
     String sayHi(String msg);
 }

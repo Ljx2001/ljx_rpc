@@ -6,6 +6,7 @@ import com.ljx.compress.Compressor;
 import com.ljx.compress.impl.GzipCompressor;
 import com.ljx.discovery.RegistryConfig;
 import com.ljx.loadbalancer.LoadBalancer;
+import com.ljx.loadbalancer.impl.MinimumResponseTimeLoadBalancer;
 import com.ljx.loadbalancer.impl.RoundRobinLoadBalancer;
 import com.ljx.serialize.Serializer;
 import com.ljx.serialize.impl.JdkSerializer;
@@ -37,17 +38,14 @@ public class Configuration {
     private String applicationName = "default";
     //配置信息-->序列化方式
     private String serializeType = "jdk";
-    private Serializer serializer = new JdkSerializer();
-    private ProtocolConfig protocolConfig = new ProtocolConfig(serializeType);
     //配置信息-->压缩方式
     private String compressType = "gzip";
-    private Compressor compressor = new GzipCompressor();
     //配置信息-->注册中心
     private RegistryConfig registryConfig = new RegistryConfig("zookeeper://127.0.0.1:2181");
     //配置信息-->Id生成器
     private IdGenerator idGenerator = new IdGenerator(Long.valueOf(1),Long.valueOf(2));
     //配置信息-->负载均衡器
-    private LoadBalancer LoadBalancer = new RoundRobinLoadBalancer();
+    private LoadBalancer LoadBalancer = new MinimumResponseTimeLoadBalancer();
 
     //读xml
     public Configuration(){
@@ -64,6 +62,7 @@ public class Configuration {
         //编程配置项，由RpcBootstrap提供
     }
 
-    private void loadFromSpi(Configuration configuration) {
+    public static void main(String[] args) {
+        Configuration configuration = new Configuration();
     }
 }

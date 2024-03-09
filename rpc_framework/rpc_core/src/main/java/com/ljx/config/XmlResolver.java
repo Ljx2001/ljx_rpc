@@ -3,8 +3,10 @@ package com.ljx.config;
 import com.ljx.IdGenerator;
 import com.ljx.ProtocolConfig;
 import com.ljx.compress.Compressor;
+import com.ljx.compress.CompressorFactory;
 import com.ljx.discovery.RegistryConfig;
 import com.ljx.serialize.Serializer;
+import com.ljx.serialize.SerializerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -41,14 +43,16 @@ public class XmlResolver {
 
             configuration.setIdGenerator(resolveIdGenerator(doc,xPath));
 
+            configuration.setCompressType(resolveCompressType(doc,xPath));
             configuration.setSerializeType(resolveSerializeType(doc,xPath));
-            configuration.setProtocolConfig(new ProtocolConfig(configuration.getSerializeType()));
-            configuration.setSerializer(resolveSerializer(doc,xPath));
+
+            ObjectWrapper<Compressor> compressorObjectWrapper = resolveCompressor(doc,xPath);
+            CompressorFactory.addCompressor(compressorObjectWrapper);
+
+            ObjectWrapper<Serializer> serializerObjectWrapper = resolveSerializer(doc,xPath);
+            SerializerFactory.addSerializer(serializerObjectWrapper);
 
             configuration.setLoadBalancer(resolveLoadBalancer(doc,xPath));
-
-            configuration.setCompressType(resolveCompressType(doc,xPath));
-            configuration.setCompressor(resolveCompressor(doc,xPath));
 
             System.out.println("配置信息："+configuration);
         } catch (IOException | SAXException | ParserConfigurationException e) {
@@ -67,9 +71,13 @@ public class XmlResolver {
         String expression = "/configuration/compressType";
         return parseString(doc, xPath, expression);
     }
-    private Compressor resolveCompressor(Document doc, XPath xPath) {
+    private ObjectWrapper<Compressor> resolveCompressor(Document doc, XPath xPath) {
         String expression = "/configuration/compressor";
-        return parseObject(doc, xPath, expression, null);
+        Compressor compressor = parseObject(doc, xPath, expression, null);
+        Byte code =Byte.valueOf(parseString(doc, xPath, expression,"code"));
+        String name = parseString(doc, xPath, expression,"name");
+        ObjectWrapper<Compressor> compressorObjectWrapper = new ObjectWrapper<>(code, name, compressor);
+        return compressorObjectWrapper;
     }
 
     /**
@@ -93,9 +101,12 @@ public class XmlResolver {
         String expression = "/configuration/serializeType";
         return parseString(doc, xPath, expression);
     }
-    private Serializer resolveSerializer(Document doc, XPath xPath) {
+    private ObjectWrapper<Serializer> resolveSerializer(Document doc, XPath xPath) {
         String expression = "/configuration/serializer";
-        return parseObject(doc, xPath, expression,null);
+        Serializer serializer = parseObject(doc, xPath, expression,null);
+        Byte code = Byte.valueOf(parseString(doc, xPath, expression,"code"));
+        String name = parseString(doc, xPath, expression,"name");
+        return new ObjectWrapper<>(code, name, serializer);
     }
 
     /**

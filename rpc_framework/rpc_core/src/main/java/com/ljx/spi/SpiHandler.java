@@ -1,5 +1,7 @@
 package com.ljx.spi;
 
+import com.ljx.Exceptions.SpiException;
+import com.ljx.config.ObjectWrapper;
 import com.ljx.loadbalancer.LoadBalancer;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * @Author LiuJixing
@@ -25,7 +28,7 @@ public class SpiHandler {
     //定义一个缓存，保存spi相关的原始内容
     private static final Map<String, List<String>> SPI_CONTENT = new ConcurrentHashMap<>(8);
     //缓存每一个接口所对应的实现的实例
-    private static final Map<Class, List<Object>> SPI_IMPLEMENT = new ConcurrentHashMap<>(32);
+    private static final Map<Class, List<ObjectWrapper<?>>> SPI_IMPLEMENT = new ConcurrentHashMap<>(32);
     //加载当前类后，需要将spi保存，避免运行时频繁IO
     static {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -48,16 +51,20 @@ public class SpiHandler {
      * @return 实现类的第一个实例
      * @param <T>
      */
-    public static <T> T get(Class<T> clazz) {
+    public synchronized static <T> ObjectWrapper<T> get(Class<T> clazz) {
         //优先从缓存里面获取
-        List<Object> impls = SPI_IMPLEMENT.get(clazz);
-        if(impls != null && !impls.isEmpty()){
-            return (T) impls.get(0);
+        List<ObjectWrapper<?>> objectWrappers = SPI_IMPLEMENT.get(clazz);
+        if(objectWrappers != null && !objectWrappers.isEmpty()){
+            return (ObjectWrapper<T>) objectWrappers.get(0);
         }
         //如果缓存里面没有，就要建立缓存
         buildCache(clazz);
         //再次尝试获取第一个
-        return (T) SPI_IMPLEMENT.get(clazz).get(0);
+        List<ObjectWrapper<?>> results = SPI_IMPLEMENT.get(clazz);
+        if(results == null || results.isEmpty()){
+            return null;
+        }
+        return (ObjectWrapper<T>) results.get(0);
     }
     /**
      * 获取所有和clazz对应的spi实现
@@ -65,15 +72,19 @@ public class SpiHandler {
      * @return 实现类的实例集合
      * @param <T>
      */
-    public static <T> List<T> getList(Class<T> clazz) {
+    public synchronized static <T> List<ObjectWrapper<T>> getList(Class<T> clazz) {
         //优先从缓存里面获取
-        List<Object> impls = SPI_IMPLEMENT.get(clazz);
-        if(impls != null && !impls.isEmpty()){
-            return (List<T>)impls;
+        List<ObjectWrapper<?>> objectWrappers = SPI_IMPLEMENT.get(clazz);
+        if(objectWrappers != null && !objectWrappers.isEmpty()){
+            return objectWrappers.stream().map(e->(ObjectWrapper<T>)e).collect(Collectors.toList());
         }
         //如果缓存里面没有，就要建立缓存
         buildCache(clazz);
-        return (List<T>)SPI_IMPLEMENT.get(clazz);
+        objectWrappers = SPI_IMPLEMENT.get(clazz);
+        if(objectWrappers != null && !objectWrappers.isEmpty()){
+            return objectWrappers.stream().map(e->(ObjectWrapper<T>)e).collect(Collectors.toList());
+        }
+        return new ArrayList<>();
     }
 
     /**
@@ -82,15 +93,28 @@ public class SpiHandler {
      */
     private static void buildCache(Class<?> clazz) {
         String name = clazz.getName();
-        List<Object> implement = new ArrayList<>();
+        List<ObjectWrapper<?>> implement = new ArrayList<>();
         List<String> implNames = SPI_CONTENT.get(name);
+        if(implNames == null || implNames.isEmpty()){
+            log.debug("spi文件中没有找到【{}】的实现",name);
+            return;
+        }
         //实例化所有实现
         if(implNames != null && !implNames.isEmpty()){
             for (String implName : implNames) {
                 try{
-                    Class<?> aClass = Class.forName(implName);
+                    String[] codeAndTypeAndName = implName.split("-");
+                    if(codeAndTypeAndName.length != 3){
+                        log.debug("spi文件中【{}】的实现格式不正确",implName);
+                        throw new SpiException("spi文件中格式不正确");
+                    }
+                    Byte code = Byte.valueOf(codeAndTypeAndName[0]);
+                    String type = codeAndTypeAndName[1];
+                    String implementName = codeAndTypeAndName[2];
+                    Class<?> aClass = Class.forName(implementName);
                     Object impl = aClass.getConstructor().newInstance();
-                    implement.add(impl);
+                    ObjectWrapper implWrapper = new ObjectWrapper(code, type , impl);
+                    implement.add(implWrapper);
                 } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException |
                          IllegalAccessException | InvocationTargetException e){
                     log.debug("spi实例化【{}】的实现时发生异常",implName);

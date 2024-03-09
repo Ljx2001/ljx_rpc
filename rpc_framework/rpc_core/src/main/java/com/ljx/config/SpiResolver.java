@@ -1,9 +1,13 @@
 package com.ljx.config;
 
 import com.ljx.compress.Compressor;
+import com.ljx.compress.CompressorFactory;
 import com.ljx.loadbalancer.LoadBalancer;
 import com.ljx.serialize.Serializer;
+import com.ljx.serialize.SerializerFactory;
 import com.ljx.spi.SpiHandler;
+
+import java.util.List;
 
 /**
  * @Author LiuJixing
@@ -15,12 +19,17 @@ public class SpiResolver {
      * @param configuration 配置上下文
      */
     public void loadFromSpi(Configuration configuration) {
-        LoadBalancer loadBalancer = SpiHandler.get(LoadBalancer.class);
-        configuration.setLoadBalancer(loadBalancer);
-        Compressor compressor = SpiHandler.get(Compressor.class);
-        configuration.setCompressor(compressor);
-        Serializer serializer = SpiHandler.get(Serializer.class);
-        configuration.setSerializer(serializer);
-        
+        List<ObjectWrapper<LoadBalancer>> loadBalancerWrapers = SpiHandler.getList(LoadBalancer.class);
+        if(loadBalancerWrapers != null && !loadBalancerWrapers.isEmpty()) {
+            configuration.setLoadBalancer(loadBalancerWrapers.get(0).getImpl());
+        }
+        List<ObjectWrapper<Compressor>> compressorWrappers = SpiHandler.getList(Compressor.class);
+        if(compressorWrappers != null && !compressorWrappers.isEmpty()) {
+            compressorWrappers.forEach(CompressorFactory::addCompressor);
+        }
+        List<ObjectWrapper<Serializer>> serializerWrappers = SpiHandler.getList(Serializer.class);
+        if(serializerWrappers != null && !serializerWrappers.isEmpty()) {
+            serializerWrappers.forEach(SerializerFactory::addSerializer);
+        }
     }
 }

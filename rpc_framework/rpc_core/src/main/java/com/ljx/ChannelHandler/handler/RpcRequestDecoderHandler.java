@@ -80,10 +80,10 @@ public class RpcRequestDecoderHandler extends LengthFieldBasedFrameDecoder {
         RequestPayload requestPayload = null;
         //解压缩请求体
         if(payload!=null && payload.length!=0){
-            Compressor compressor = CompressorFactory.getCompressor(compressType).getCompressor();
+            Compressor compressor = CompressorFactory.getCompressor(compressType).getImpl();
             payload = compressor.decompress(payload);
             //反序列化请求体
-            Serializer  serializer = SerializerFactory.getSerializer(serializeType).getSerializer();
+            Serializer  serializer = SerializerFactory.getSerializer(serializeType).getImpl();
             requestPayload = serializer.deserialize(payload,RequestPayload.class);
         }
         rpcRequest.setRequestPayload(requestPayload);
