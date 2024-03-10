@@ -4,15 +4,21 @@ import com.ljx.RpcBootstrap;
 import com.ljx.ServiceConfig;
 import com.ljx.enumeration.RequestType;
 import com.ljx.enumeration.ResponseCode;
+import com.ljx.protection.RateLimiter;
+import com.ljx.protection.TokenBuketRateLimiter;
 import com.ljx.transport.message.RequestPayload;
 import com.ljx.transport.message.RpcRequest;
 import com.ljx.transport.message.RpcResponse;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.util.Map;
 
 /**
  * @Author LiuJixing
@@ -22,25 +28,47 @@ import java.lang.reflect.Method;
 public class MethodCallHandler extends SimpleChannelInboundHandler<RpcRequest> {
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, RpcRequest rpcRequest) throws Exception {
-        //1.获得负载内容
-        RequestPayload requestPayload = rpcRequest.getRequestPayload();
-        Object result = null;
-        if(rpcRequest.getRequestType()!= RequestType.HEART_BEAT.getId()){
-            //2.根据负载内容进行方法调用
-            result = callTargetMethod(requestPayload);
-            if(log.isDebugEnabled()){
-                log.debug("请求【{}】已经在服务端完成了方法调用。",rpcRequest.getRequestId());
-            }
-        }
-        //3.封装响应对象
         RpcResponse rpcResponse = new RpcResponse();
-        rpcResponse.setCode(ResponseCode.SUCCESS.getCode());
         rpcResponse.setRequestId(rpcRequest.getRequestId());
         rpcResponse.setCompressType(rpcRequest.getCompressType());
         rpcResponse.setSerializeType(rpcRequest.getSerializeType());
-        rpcResponse.setBody(result);
+
+        Channel channel = channelHandlerContext.channel();
+        SocketAddress socketAddress = channel.remoteAddress();
+        Map<SocketAddress, RateLimiter> everyIpRateLimiter = RpcBootstrap.getInstance().getConfiguration().getEveryIpRateLimiter();
+        RateLimiter rateLimiter = everyIpRateLimiter.get(socketAddress);
+        if(rateLimiter == null){
+            rateLimiter = new TokenBuketRateLimiter(10, 10);
+            everyIpRateLimiter.put(socketAddress, rateLimiter);
+        }
+        //限流
+        Boolean allowRequest = rateLimiter.allowRequest();
+        if(rpcRequest.getRequestType()== RequestType.HEART_BEAT.getId()){
+            rpcResponse.setCode(ResponseCode.SUCCESS_HEARTBEAT.getCode());
+        }
+        //处理心跳
+        else if(!allowRequest){
+            rpcResponse.setCode(ResponseCode.RATE_LIMIT.getCode());
+        }
+        else {
+            //1.获得负载内容
+            RequestPayload requestPayload = rpcRequest.getRequestPayload();
+            //2.根据负载内容进行方法调用
+            try{
+                Object result = callTargetMethod(requestPayload);
+                if (log.isDebugEnabled()) {
+                    log.debug("请求【{}】已经在服务端完成了方法调用。", rpcRequest.getRequestId());
+                }
+                //3.封装响应对象
+                rpcResponse.setCode(ResponseCode.SUCCESS.getCode());
+                rpcResponse.setBody(result);
+            } catch(Exception ex){
+                rpcResponse.setCode(ResponseCode.FAIL.getCode());
+                log.error("调用服务【{}】的【{}】的方法时发生了异常！",requestPayload.getInterfaceName(),requestPayload.getMethodName());
+            }
+        }
         //4.写出响应
-        channelHandlerContext.channel().writeAndFlush(rpcResponse);
+        channel.writeAndFlush(rpcResponse);
     }
 
     private Object callTargetMethod(RequestPayload requestPayload) {

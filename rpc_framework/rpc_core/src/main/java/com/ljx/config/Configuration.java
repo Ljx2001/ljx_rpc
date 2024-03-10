@@ -8,6 +8,8 @@ import com.ljx.discovery.RegistryConfig;
 import com.ljx.loadbalancer.LoadBalancer;
 import com.ljx.loadbalancer.impl.MinimumResponseTimeLoadBalancer;
 import com.ljx.loadbalancer.impl.RoundRobinLoadBalancer;
+import com.ljx.protection.CircuitBreaker;
+import com.ljx.protection.RateLimiter;
 import com.ljx.serialize.Serializer;
 import com.ljx.serialize.impl.JdkSerializer;
 import lombok.Data;
@@ -23,6 +25,10 @@ import javax.xml.xpath.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 全局配置类，代码配置->xml配置->默认项
@@ -45,7 +51,10 @@ public class Configuration {
     //配置信息-->Id生成器
     private IdGenerator idGenerator = new IdGenerator(Long.valueOf(1),Long.valueOf(2));
     //配置信息-->负载均衡器
-    private LoadBalancer LoadBalancer = new MinimumResponseTimeLoadBalancer();
+    private LoadBalancer loadBalancer = new MinimumResponseTimeLoadBalancer();
+    //为每个ip设置一个限流器
+    private final Map<SocketAddress, RateLimiter> everyIpRateLimiter = new ConcurrentHashMap<>(8);
+    private final Map<SocketAddress, CircuitBreaker> everyIpCircuitBreaker = new ConcurrentHashMap<>(8);
 
     //读xml
     public Configuration(){

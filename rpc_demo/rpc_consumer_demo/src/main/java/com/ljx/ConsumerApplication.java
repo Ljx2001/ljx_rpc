@@ -28,15 +28,20 @@ public class ConsumerApplication {
                 .reference(reference);
         //获取一个代理对象
         HelloRpc helloRpc = reference.get();
+//        for (int i = 0; i < 200; i++) {
+//            //调用代理对象的方法
+//            String result = helloRpc.sayHi("你好");
+//            log.debug("调用结果：{}", result);
+//        }
         //睡一会
         while(true){
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 20; i++) {
                 //调用代理对象的方法
                 String result = helloRpc.sayHi("你好");
                 log.debug("调用结果：{}", result);
             }
             try {
-                Thread.sleep(20000);
+                Thread.sleep(10000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

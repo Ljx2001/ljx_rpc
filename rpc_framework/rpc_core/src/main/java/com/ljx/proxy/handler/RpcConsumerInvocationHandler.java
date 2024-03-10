@@ -1,7 +1,9 @@
 package com.ljx.proxy.handler;
 
+import com.ljx.Exceptions.CircuitOpenException;
 import com.ljx.annotation.TryTimes;
 import com.ljx.compress.CompressorFactory;
+import com.ljx.protection.CircuitBreaker;
 import com.ljx.serialize.SerializerFactory;
 import com.ljx.Exceptions.DiscoveryException;
 import com.ljx.Exceptions.NetworkException;
@@ -18,8 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -74,22 +79,34 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 if (log.isDebugEnabled()) {
                     log.debug("服务调用方发现了服务【{}】的可用主机【{}】", interfaceRef.getName(), addr);
                 }
+
+                //获取当前IP对应的断路器
+                Map<SocketAddress, CircuitBreaker> everyIpCircuitBreaker = RpcBootstrap.getInstance().getConfiguration().getEveryIpCircuitBreaker();
+                CircuitBreaker circuitBreaker = everyIpCircuitBreaker.get(addr);
+                if(circuitBreaker == null){
+                    circuitBreaker = new CircuitBreaker(10,0.2F);
+                    everyIpCircuitBreaker.put(addr, circuitBreaker);
+                }
+
+                //如果熔断器是开启状态
+                if(circuitBreaker.isBreak()){
+                    //开启一个定时器，5秒后重置熔断器
+                    Timer timer = new Timer();
+                    timer.schedule(new java.util.TimerTask() {
+                        @Override
+                        public void run() {
+                            RpcBootstrap.getInstance().getConfiguration().getEveryIpCircuitBreaker().get(addr).reset();
+                        }
+                    }, 5000);
+                    throw new CircuitOpenException("当前熔断器在开启状态，无法发送请求。");
+                }
+
                 //3.得到一个可用的通道
                 Channel channel = getAvailableChannel(addr);
                 if (log.isDebugEnabled()) {
                     log.debug("获取了和【{}】的连接通道，准备发送数据", channel);
                 }
 
-                //------------同步策略--------------
-                //                ChannelFuture channelFuture = channel.writeAndFlush(new Object()).await();
-                //                if(channelFuture.isDone()) {
-                //                    Object object = channelFuture.getNow();
-                //                } else if(!channelFuture.isSuccess()) {
-                //                    //捕获异步任务中的异常
-                //                    Throwable cause = channelFuture.cause();
-                //                    throw new RuntimeException(cause);
-                //                }
-                //------------异步策略--------------
                 //4.写出报文
                 CompletableFuture<Object> completableFuture = new CompletableFuture<>();
                 //将CompletableFuture放入全局的缓存中，暴露出去
@@ -105,7 +122,9 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 //清理ThreadLocal
                 RpcBootstrap.REQUEST_THREAD_LOCAL.remove();
                 //5.等待获取相应的结果
-                return completableFuture.get(10, TimeUnit.SECONDS);
+                Object result = completableFuture.get(100, TimeUnit.SECONDS);
+                circuitBreaker.record(true);
+                return result;
             } catch (DiscoveryException | InterruptedException | ExecutionException | TimeoutException e) {
                 //执行重试
                 tryTimes--;
@@ -121,9 +140,13 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
 
                 }
                 log.error("在进行第【{}】重试时发生了异常", 3 - tryTimes, e);
+            } catch (CircuitOpenException e){
+                log.error("当前熔断器在开启状态，无法发送请求。", e);
+                break;
             }
         }
-        throw new RuntimeException("在执行远程方法"+method.getName()+"调用时时发生了异常");
+        log.error("在执行远程方法"+method.getName()+"调用时时发生了异常");
+        return null;
     }
 
     /**

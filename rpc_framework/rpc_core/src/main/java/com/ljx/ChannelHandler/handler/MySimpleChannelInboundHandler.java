@@ -1,13 +1,19 @@
 package com.ljx.ChannelHandler.handler;
 
+import ch.qos.logback.classic.net.SocketReceiver;
+import com.ljx.Exceptions.ResponseException;
 import com.ljx.RpcBootstrap;
+import com.ljx.enumeration.ResponseCode;
+import com.ljx.protection.CircuitBreaker;
 import com.ljx.transport.message.RpcResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.SocketAddress;
 import java.nio.charset.Charset;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -19,12 +25,39 @@ import java.util.concurrent.CompletableFuture;
 public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<RpcResponse> {
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, RpcResponse rpcResponse) throws Exception {
-        Object returnValue = rpcResponse.getBody();
-        returnValue = returnValue==null?new Object():returnValue;
+        SocketAddress socketAddress = channelHandlerContext.channel().remoteAddress();
+        Map<SocketAddress,CircuitBreaker> everyIpCircuitBreaker = RpcBootstrap.getInstance().getConfiguration().getEveryIpCircuitBreaker();
+        CircuitBreaker circuitBreaker = everyIpCircuitBreaker.get(socketAddress);
         CompletableFuture<Object> completableFuture = RpcBootstrap.PENDING_REQUEST.get(rpcResponse.getRequestId());
-        completableFuture.complete(returnValue);
-        if(log.isDebugEnabled()){
-            log.debug("已寻找到编号为【{}】的completableFuture，处理相应结果。",rpcResponse.getRequestId());
+        byte code = rpcResponse.getCode();
+        System.out.println("code:"+code);
+        if(code== ResponseCode.FAIL.getCode()){
+            circuitBreaker.record(false);
+            completableFuture.complete(null);
+            log.error("当前id为【{}】的请求，返回错误的结果，响应码【{}】",rpcResponse.getRequestId(),code);
+            throw new ResponseException(code,ResponseCode.FAIL.getMessage());
+        }else if(code== ResponseCode.RESOURCE_NOT_FOUND.getCode()){
+            circuitBreaker.record(false);
+            completableFuture.complete(null);
+            log.error("当前id为【{}】的请求，未找到目标资源，响应码【{}】",rpcResponse.getRequestId(),code);
+            throw new ResponseException(code,ResponseCode.RESOURCE_NOT_FOUND.getMessage());
+        }else if(code== ResponseCode.RATE_LIMIT.getCode()){
+            circuitBreaker.record(false);
+            completableFuture.complete(null);
+            log.error("当前id为【{}】的请求，被限流，响应码【{}】",rpcResponse.getRequestId(),code);
+            throw new ResponseException(code,ResponseCode.RATE_LIMIT.getMessage());
+        } else if(code== ResponseCode.SUCCESS_HEARTBEAT.getCode()){
+            completableFuture.complete(null);
+            if(log.isDebugEnabled()){
+                log.debug("心跳检测响应成功。",rpcResponse.getRequestId());
+            }
+        }else if(code== ResponseCode.SUCCESS.getCode()){
+            circuitBreaker.record(true);
+            Object returnValue = rpcResponse.getBody();
+            completableFuture.complete(returnValue);
+            if(log.isDebugEnabled()){
+                log.debug("已寻找到编号为【{}】的completableFuture，处理相应结果。",rpcResponse.getRequestId());
+            }
         }
     }
 }
