@@ -14,12 +14,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class AbstractLoadBalancer implements LoadBalancer{
     private Map<String,Selector> selectorCache = new ConcurrentHashMap<>();
     @Override
-    public InetSocketAddress selectServiceAddress(String serviceName) {
+    public InetSocketAddress selectServiceAddress(String serviceName,String group) {
         //先从缓存中获取选择器
         Selector selector = selectorCache.get(serviceName);
         if(selector==null){
             //如果缓存中没有，就创建一个新的，并放入缓存
-            List<InetSocketAddress> serviceList = RpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry().lookup(serviceName);
+            List<InetSocketAddress> serviceList = RpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry().lookup(serviceName,group);
             selector = getSelector(serviceList);
             selectorCache.put(serviceName,selector);
         }

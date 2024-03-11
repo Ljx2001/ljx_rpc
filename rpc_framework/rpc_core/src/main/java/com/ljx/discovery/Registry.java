@@ -20,7 +20,8 @@ public interface Registry {
     /**
      * 从注册中心拉取一个可用的服务
      * @param name 服务的名称
+     * @param group 服务的分组
      * @return 服务的ip和端口
      */
-    List<InetSocketAddress> lookup(String name);
+    List<InetSocketAddress> lookup(String name,String group);
 }

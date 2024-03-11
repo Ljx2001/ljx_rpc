@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <port>8088</port>
+    <applicationName>rpc-default-appName</applicationName>
+    <registry>zookeeper://127.0.0.1:2181</registry>
+
+    <!--二选一-->
+    <serializeType>hessian</serializeType>
+    <serializer code="1" name="hessian" class="com.ljx.serialize.impl.HessianSerializer"/>
+
+    <!--二选一-->
+    <compressType>gzip</compressType>
+    <compressor code="1" name="gzip" class="com.ljx.compress.impl.GzipCompressor"/>
+
+    <!--二选一-->
+    <loadBalanceType>roundrobin</loadBalanceType>
+    <loadBalancer code="1" name="RoundRobin" class="com.ljx.loadbalancer.impl.RoundRobinLoadBalancer"/>
+
+    <idGenerator class="com.ljx.IdGenerator" dataCenterId="1" machineId="1"/>
+</configuration>

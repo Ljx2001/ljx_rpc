@@ -7,6 +7,7 @@ import com.ljx.ChannelHandler.handler.RpcResponseEncoderHandler;
 import com.ljx.annotation.RpcService;
 import com.ljx.config.Configuration;
 import com.ljx.core.HeartbeatDetector;
+import com.ljx.core.RpcShutDownHook;
 import com.ljx.discovery.RegistryConfig;
 import com.ljx.loadbalancer.LoadBalancer;
 import com.ljx.protection.RateLimiter;
@@ -108,6 +109,7 @@ public class RpcBootstrap {
     public RpcBootstrap reference(ReferenceConfig<?> reference) {
         HeartbeatDetector.detectHeartbeat(reference.getInterfaceRef().getName());
         reference.setRegistry(configuration.getRegistryConfig().getRegistry());
+        reference.setGroup(configuration.getGroup());
         return this;
     }
     /**
@@ -139,6 +141,8 @@ public class RpcBootstrap {
 
 
     public void start() {
+        //注册一个钩子函数，当应用关闭时，调用
+        Runtime.getRuntime().addShutdownHook(new RpcShutDownHook());
         //创建eventLoopGroup，老板只负责处理请求，然后把请求转给worker
         NioEventLoopGroup boss = new NioEventLoopGroup();
         NioEventLoopGroup worker = new NioEventLoopGroup();
@@ -225,10 +229,14 @@ public class RpcBootstrap {
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
+            //获得分组信息
+            RpcService RpcService = aClass.getAnnotation(RpcService.class);
+            String group = RpcService.group();
             for (Class<?> anInterface : interfaces) {
                 ServiceConfig<?> serviceConfig = new ServiceConfig<>();
                 serviceConfig.setInterface(anInterface);
                 serviceConfig.setRef(instance);
+                serviceConfig.setGroup(group);
                 //发布服务
                 this.publish(serviceConfig);
                 if(log.isDebugEnabled()){
@@ -299,6 +307,11 @@ public class RpcBootstrap {
 
     public static void main(String[] args) {
         RpcBootstrap.getInstance().getAllClassNames("com.ljx");
+    }
+
+    public RpcBootstrap group(String group) {
+        this.getConfiguration().setGroup(group);
+        return this;
     }
 }
 

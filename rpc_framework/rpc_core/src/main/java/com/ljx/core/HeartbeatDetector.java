@@ -32,7 +32,7 @@ public class HeartbeatDetector {
     public static void detectHeartbeat(String ServiceName){
         //从注册中心拉取服务列表并建立连接
         Registry registry = RpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry();
-        List<InetSocketAddress> addresses = registry.lookup(ServiceName);
+        List<InetSocketAddress> addresses = registry.lookup(ServiceName,RpcBootstrap.getInstance().getConfiguration().getGroup());
 
         //将连接进行缓存
         for (InetSocketAddress address : addresses) {

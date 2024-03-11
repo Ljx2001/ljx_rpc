@@ -2,6 +2,7 @@ package com.ljx.ChannelHandler.handler;
 
 import com.ljx.RpcBootstrap;
 import com.ljx.ServiceConfig;
+import com.ljx.core.ShutDownHolder;
 import com.ljx.enumeration.RequestType;
 import com.ljx.enumeration.ResponseCode;
 import com.ljx.protection.RateLimiter;
@@ -32,8 +33,16 @@ public class MethodCallHandler extends SimpleChannelInboundHandler<RpcRequest> {
         rpcResponse.setRequestId(rpcRequest.getRequestId());
         rpcResponse.setCompressType(rpcRequest.getCompressType());
         rpcResponse.setSerializeType(rpcRequest.getSerializeType());
-
         Channel channel = channelHandlerContext.channel();
+
+        if(ShutDownHolder.BLOCKER.get()){
+            log.error("服务端已经关闭，拒绝请求！");
+            rpcResponse.setCode(ResponseCode.BECLOSEING.getCode());
+            channel.writeAndFlush(rpcResponse);
+            return;
+        }
+        ShutDownHolder.REQUEST_COUNTER.increment();
+
         SocketAddress socketAddress = channel.remoteAddress();
         Map<SocketAddress, RateLimiter> everyIpRateLimiter = RpcBootstrap.getInstance().getConfiguration().getEveryIpRateLimiter();
         RateLimiter rateLimiter = everyIpRateLimiter.get(socketAddress);
@@ -41,12 +50,12 @@ public class MethodCallHandler extends SimpleChannelInboundHandler<RpcRequest> {
             rateLimiter = new TokenBuketRateLimiter(10, 10);
             everyIpRateLimiter.put(socketAddress, rateLimiter);
         }
-        //限流
         Boolean allowRequest = rateLimiter.allowRequest();
+        //处理心跳
         if(rpcRequest.getRequestType()== RequestType.HEART_BEAT.getId()){
             rpcResponse.setCode(ResponseCode.SUCCESS_HEARTBEAT.getCode());
         }
-        //处理心跳
+        //限流
         else if(!allowRequest){
             rpcResponse.setCode(ResponseCode.RATE_LIMIT.getCode());
         }
@@ -69,6 +78,7 @@ public class MethodCallHandler extends SimpleChannelInboundHandler<RpcRequest> {
         }
         //4.写出响应
         channel.writeAndFlush(rpcResponse);
+        ShutDownHolder.REQUEST_COUNTER.decrement();
     }
 
     private Object callTargetMethod(RequestPayload requestPayload) {

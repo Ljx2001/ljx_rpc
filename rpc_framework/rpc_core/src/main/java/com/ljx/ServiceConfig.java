@@ -7,6 +7,7 @@ package com.ljx;
 public class ServiceConfig<T> {
     private Class<?> interfaceProvider;
     private Object ref;
+    private String group;
     public void setInterface(Class<?> helloRpcClass) {
         this.interfaceProvider = helloRpcClass;
     }
@@ -21,5 +22,13 @@ public class ServiceConfig<T> {
 
     public Object getRef() {
         return ref;
+    }
+
+    public void setGroup(String group) {
+        this.group = group;
+    }
+
+    public String getGroup() {
+        return group;
     }
 }

@@ -26,7 +26,7 @@ public class NodeUPAndDownWatcher implements Watcher {
         }
         String serviceName = getServiceName(watchedEvent.getPath());
         Registry registry = RpcBootstrap.getInstance().getConfiguration().getRegistryConfig().getRegistry();
-        List<InetSocketAddress> addrs = registry.lookup(serviceName);
+        List<InetSocketAddress> addrs = registry.lookup(serviceName,RpcBootstrap.getInstance().getConfiguration().getGroup());
         for (InetSocketAddress addr : addrs) {
             //新增的节点，需要建立连接
             if(!RpcBootstrap.CHANNEL_CACHE.containsKey(addr)){

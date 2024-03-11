@@ -40,9 +40,11 @@ import java.util.concurrent.TimeoutException;
 public class RpcConsumerInvocationHandler implements InvocationHandler {
     private Class<?> interfaceRef;
     private Registry registry;
-    public RpcConsumerInvocationHandler(Class<?> interfaceRef, Registry registry) {
+    private String group;
+    public RpcConsumerInvocationHandler(Class<?> interfaceRef, Registry registry,String group) {
         this.interfaceRef = interfaceRef;
         this.registry = registry;
+        this.group = group;
     }
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) {
@@ -75,7 +77,7 @@ public class RpcConsumerInvocationHandler implements InvocationHandler {
                 RpcBootstrap.REQUEST_THREAD_LOCAL.set(rpcRequest);
                 //2.发现服务，从注册中心拉取服务列表，并通过客户端负载均衡寻找一个可用的服务
                 //获取当前配置的负载均衡器，选取一个可用节点
-                InetSocketAddress addr = RpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName());
+                InetSocketAddress addr = RpcBootstrap.getInstance().getConfiguration().getLoadBalancer().selectServiceAddress(interfaceRef.getName(),group);
                 if (log.isDebugEnabled()) {
                     log.debug("服务调用方发现了服务【{}】的可用主机【{}】", interfaceRef.getName(), addr);
                 }

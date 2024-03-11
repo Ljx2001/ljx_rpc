@@ -21,6 +21,7 @@ import java.lang.reflect.Proxy;
 public class ReferenceConfig<T> {
     private Class<T> interfaceRef;
     private Registry registry;
+    private String group;
 
     public void setInterface(Class<T> RpcClass) {
         this.interfaceRef = RpcClass;
@@ -33,9 +34,13 @@ public class ReferenceConfig<T> {
     public T get() {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         Class<T>[] classes = new Class[]{interfaceRef};
-        InvocationHandler invocationHandler = new RpcConsumerInvocationHandler(interfaceRef, registry);
+        InvocationHandler invocationHandler = new RpcConsumerInvocationHandler(interfaceRef, registry, group);
         //使用动态代理生成一个代理对象
         Object proxy = Proxy.newProxyInstance(classLoader, classes, invocationHandler);
         return (T) proxy;
+    }
+
+    public void setGroup(String applicationName) {
+        this.group = applicationName;
     }
 }

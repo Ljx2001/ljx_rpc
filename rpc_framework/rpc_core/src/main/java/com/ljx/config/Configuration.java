@@ -12,6 +12,7 @@ import com.ljx.protection.CircuitBreaker;
 import com.ljx.protection.RateLimiter;
 import com.ljx.serialize.Serializer;
 import com.ljx.serialize.impl.JdkSerializer;
+import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.w3c.dom.Document;
@@ -42,6 +43,8 @@ public class Configuration {
     private int port = 8089;
     //配置信息-->应用程序名称
     private String applicationName = "default";
+    //配置信息-->分组
+    private String group = "default";
     //配置信息-->序列化方式
     private String serializeType = "jdk";
     //配置信息-->压缩方式

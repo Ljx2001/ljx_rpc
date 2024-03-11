@@ -4,13 +4,17 @@ import ch.qos.logback.classic.net.SocketReceiver;
 import com.ljx.Exceptions.ResponseException;
 import com.ljx.RpcBootstrap;
 import com.ljx.enumeration.ResponseCode;
+import com.ljx.loadbalancer.LoadBalancer;
 import com.ljx.protection.CircuitBreaker;
+import com.ljx.transport.message.RpcRequest;
 import com.ljx.transport.message.RpcResponse;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -49,8 +53,17 @@ public class MySimpleChannelInboundHandler extends SimpleChannelInboundHandler<R
         } else if(code== ResponseCode.SUCCESS_HEARTBEAT.getCode()){
             completableFuture.complete(null);
             if(log.isDebugEnabled()){
-                log.debug("心跳检测响应成功。",rpcResponse.getRequestId());
+                log.debug("心跳检测响应成功。");
             }
+        } else if(code== ResponseCode.BECLOSEING.getCode()){
+            completableFuture.complete(null);
+            if(log.isDebugEnabled()){
+                log.debug("id为【{}】的请求，访问被拒绝，目标服务器正处于关闭中。",rpcResponse.getRequestId());
+            }
+            RpcBootstrap.CHANNEL_CACHE.remove(socketAddress);
+            LoadBalancer loadBalancer = RpcBootstrap.getInstance().getConfiguration().getLoadBalancer();
+            RpcRequest rpcRequest = RpcBootstrap.REQUEST_THREAD_LOCAL.get();
+            loadBalancer.reLoadBalance(rpcRequest.getRequestPayload().getInterfaceName(),RpcBootstrap.CHANNEL_CACHE.keySet().stream().toList());
         }else if(code== ResponseCode.SUCCESS.getCode()){
             circuitBreaker.record(true);
             Object returnValue = rpcResponse.getBody();

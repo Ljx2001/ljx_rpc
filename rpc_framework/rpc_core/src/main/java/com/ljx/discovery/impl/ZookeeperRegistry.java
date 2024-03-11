@@ -44,6 +44,10 @@ public class ZookeeperRegistry extends AbstractRegistry {
         if(!ZookeeperUtil.exists(parentNode,null,zooKeeper)){
             ZookeeperUtil.createNode(zooKeeper, new ZookeeperNode(parentNode, null), null, CreateMode.PERSISTENT);
         }
+        parentNode = parentNode + "/" + service.getGroup();
+        if(!ZookeeperUtil.exists(parentNode,null,zooKeeper)){
+            ZookeeperUtil.createNode(zooKeeper, new ZookeeperNode(parentNode, null), null, CreateMode.PERSISTENT);
+        }
         //创建本机的临时节点,ip:port
         String localIp = NetUtils.getLocalIp();
         //todo:后续处理端口问题
@@ -57,9 +61,9 @@ public class ZookeeperRegistry extends AbstractRegistry {
     }
 
     @Override
-    public List<InetSocketAddress> lookup(String name) {
+    public List<InetSocketAddress> lookup(String name,String group) {
         //1.找到服务对应的节点
-        String parentNode = Constant.BASE_PROVIDER_PATH + "/" + name;
+        String parentNode = Constant.BASE_PROVIDER_PATH + "/" + name+"/"+group;
         //2.从zk中获取他的子节点
         List<String> children = ZookeeperUtil.getChildren(parentNode, zooKeeper, new NodeUPAndDownWatcher());
         //3.解析子节点的数据，返回ip和端口
